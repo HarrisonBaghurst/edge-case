@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 const Page = () => {
@@ -17,7 +18,7 @@ const Page = () => {
 
         // setup scene and camera for three
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 100);
+        const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 100);
         camera.position.z = 7;
         
         // renderer setup 
@@ -25,6 +26,13 @@ const Page = () => {
         renderer.setSize(width, height);
         renderer.setClearColor(0x000000, 0);
         mountRef.current.appendChild(renderer.domElement);
+
+        // add orbit controls
+        const controls = new TrackballControls(camera, renderer.domElement);
+        controls.noZoom = true;       // disable zoom
+        controls.noPan = true;        // disable panning
+        controls.rotateSpeed = 4.0;   // sensitivity
+        controls.dynamicDampingFactor = 0.1;
 
         // create individual cube geometry
         const geometry = new RoundedBoxGeometry(1, 1, 1, 4, 0.075);
@@ -52,7 +60,7 @@ const Page = () => {
         const createColoredMaterial = (color: number) =>
             new THREE.MeshStandardMaterial({
                 color,
-                roughness: 0.25,
+                roughness: 0.75,
                 metalness: 0,
                 emissive: color,
                 flatShading: true
@@ -106,8 +114,7 @@ const Page = () => {
 
         // animate function - runs once per frame 
         function animate() {
-            scene.rotation.x += 0.005;
-            scene.rotation.y += 0.01;
+            controls.update();
             renderer.render( scene, camera );
         }
         renderer.setAnimationLoop( animate );
