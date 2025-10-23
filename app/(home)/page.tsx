@@ -5,9 +5,20 @@ import * as THREE from 'three';
 import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
+type CubeFaces = {
+    px: THREE.Mesh[];
+    nx: THREE.Mesh[];
+    py: THREE.Mesh[];
+    ny: THREE.Mesh[];
+    pz: THREE.Mesh[];
+    nz: THREE.Mesh[];
+};
+
 const Page = () => {
 
     const mountRef = useRef<HTMLDivElement | null>(null);
+
+    const cubeFacesRef = useRef<CubeFaces | null>(null);
 
     useEffect(() => {
         if (!mountRef.current) return;
@@ -29,13 +40,13 @@ const Page = () => {
 
         // add orbit controls
         const controls = new TrackballControls(camera, renderer.domElement);
-        controls.noZoom = true;       // disable zoom
-        controls.noPan = true;        // disable panning
-        controls.rotateSpeed = 4.0;   // sensitivity
-        controls.dynamicDampingFactor = 0.1;
+        controls.noZoom = true;       
+        controls.noPan = true;        
+        controls.rotateSpeed = 4.0;     
+        controls.dynamicDampingFactor = 0.25;
 
         // create individual cube geometry
-        const geometry = new RoundedBoxGeometry(1, 1, 1, 4, 0.075);
+        const geometry = new RoundedBoxGeometry(1, 1, 1, 4, 0.1);
 
         // pick colours depending on external faces
         const faceColors = {
@@ -80,6 +91,8 @@ const Page = () => {
             }
         }
 
+        const cubes: THREE.Mesh[] = [];
+
         // create cubes
         for (let x = 0; x < gridSize; x++) {
             for (let y = 0; y < gridSize; y++) {
@@ -102,15 +115,124 @@ const Page = () => {
                         (z - 1) * spacing
                     );
                     scene.add(cube);
+                    cubes.push(cube);
                 }
             }
         }
+
+        // create arrays of faces and corresponding cubes 
+        const updateCubeArrays = () => {
+            cubeFacesRef.current = {
+                px: [],
+                nx: [],
+                py: [],
+                ny: [],
+                pz: [],
+                nz: [],
+            }
+
+            const threshold = 0.5;
+            const worldPos = new THREE.Vector3();
+
+            for (const cube of cubes) {
+                cube.getWorldPosition(worldPos);
+
+                const {x, y, z} = worldPos;
+
+                if (x > threshold) cubeFacesRef.current.px.push(cube);
+                if (x < -threshold) cubeFacesRef.current.nx.push(cube);
+                if (y > threshold) cubeFacesRef.current.py.push(cube);
+                if (y < -threshold) cubeFacesRef.current.ny.push(cube);
+                if (z > threshold) cubeFacesRef.current.pz.push(cube);
+                if (z < -threshold) cubeFacesRef.current.nz.push(cube);
+            }
+        }
+        updateCubeArrays();
+
+        // Function to rotate all cubes on one face (for simplicity, rotate +X face)
+        const rotateFace = (face: keyof CubeFaces, axis: 'x' | 'y' | 'z', direction: 1 | -1) => {
+            if (!cubeFacesRef.current) return;
+
+            // Pick the face group, e.g. +X face
+            const cubesToRotate = cubeFacesRef.current[face];
+            if (!cubesToRotate || cubesToRotate.length === 0) return;
+
+            // Create a temporary group to rotate the cubes together
+            const group = new THREE.Group();
+            scene.add(group);
+
+            // Move cubes into the group
+            cubesToRotate.forEach(cube => group.add(cube));
+
+            // Animate rotation (90 degrees over 0.5s)
+            const duration = 250; // milliseconds
+            const start = performance.now();
+
+            const animateRotation = (time: number) => {
+                const progress = Math.min((time - start) / duration, 1);
+                group.rotation[axis] = direction * progress * (Math.PI / 2); // 90 degrees
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateRotation);
+                } else {
+                    // Move cubes back out of the group when done
+                    cubesToRotate.forEach(cube => {
+                        scene.attach(cube);
+                    });
+                    scene.remove(group);
+                    updateCubeArrays();
+                }
+            };
+
+            requestAnimationFrame(animateRotation);
+        };
+
+        // Listen for keypress
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'f') {
+                rotateFace('pz', 'z', -1);
+            }
+            else if (e.key === 'F') {
+                rotateFace('pz', 'z', 1);
+            }
+            else if (e.key === 'l') {
+                rotateFace('nx', 'x', 1);
+            }
+            else if (e.key === 'L') {
+                rotateFace('nx', 'x', -1);
+            }
+            else if (e.key === 'u') {
+                rotateFace('py', 'y', -1);
+            }
+            else if (e.key === 'U') {
+                rotateFace('py', 'y', 1);
+            }
+            else if (e.key === 'r') {
+                rotateFace('px', 'x', -1);
+            }
+            else if (e.key === 'R') {
+                rotateFace('px', 'x', 1);
+            }
+            else if (e.key === 'd') {
+                rotateFace('ny', 'y', 1);
+            }
+            else if (e.key === 'D') {
+                rotateFace('ny', 'y', -1);
+            }
+            else if (e.key === 'b') {
+                rotateFace('nz', 'z', 1);
+            }
+            else if (e.key === 'B') {
+                rotateFace('nz', 'z', -1);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
 
         // create light and add to scene
         const light = new THREE.DirectionalLight(0xffffff, 1);
         light.position.set(5, 5, 5);
         scene.add(light);
-
 
         // animate function - runs once per frame 
         function animate() {
