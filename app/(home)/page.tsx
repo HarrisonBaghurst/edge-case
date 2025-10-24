@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useRef } from 'react';
+import  { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
@@ -17,8 +17,8 @@ type CubeFaces = {
 const Page = () => {
 
     const mountRef = useRef<HTMLDivElement | null>(null);
-
     const cubeFacesRef = useRef<CubeFaces | null>(null);
+    const animatingRef = useRef<boolean>(false);
 
     useEffect(() => {
         if (!mountRef.current) return;
@@ -152,10 +152,15 @@ const Page = () => {
         // Function to rotate all cubes on one face (for simplicity, rotate +X face)
         const rotateFace = (face: keyof CubeFaces, axis: 'x' | 'y' | 'z', direction: 1 | -1) => {
             if (!cubeFacesRef.current) return;
+            if (animatingRef.current) return;
 
+            
             // Pick the face group, e.g. +X face
             const cubesToRotate = cubeFacesRef.current[face];
             if (!cubesToRotate || cubesToRotate.length === 0) return;
+
+            // set cube animating 
+            animatingRef.current = true;
 
             // Create a temporary group to rotate the cubes together
             const group = new THREE.Group();
@@ -181,6 +186,7 @@ const Page = () => {
                     });
                     scene.remove(group);
                     updateCubeArrays();
+                    animatingRef.current = false;
                 }
             };
 
